@@ -54,7 +54,7 @@ func newElasticAPMReceiver(cfg *Config, settings receiver.CreateSettings) (*elas
 	return r, nil
 }
 
-func (r *elasticapmReceiver) startHTTPServer(cfg *confighttp.HTTPServerSettings, host component.Host) error {
+func (r *elasticapmReceiver) startHTTPServer(cfg *confighttp.ServerConfig, host component.Host) error {
 	r.settings.Logger.Info("Starting HTTP server", zap.String("endpoint", cfg.Endpoint))
 	var hln net.Listener
 	hln, err := cfg.ToListener()
@@ -67,7 +67,8 @@ func (r *elasticapmReceiver) startHTTPServer(cfg *confighttp.HTTPServerSettings,
 		defer r.shutdownWG.Done()
 
 		if errHTTP := r.serverHTTP.Serve(hln); errHTTP != http.ErrServerClosed {
-			host.ReportFatalError(errHTTP)
+			ev := component.NewStatusEvent(component.StatusFatalError)
+			r.settings.ReportStatus(ev)
 		}
 	}()
 	return nil
@@ -75,7 +76,7 @@ func (r *elasticapmReceiver) startHTTPServer(cfg *confighttp.HTTPServerSettings,
 
 func (r *elasticapmReceiver) Start(ctx context.Context, host component.Host) error {
 	var err error
-	r.serverHTTP, err = r.cfg.HTTPServerSettings.ToServer(
+	r.serverHTTP, err = r.cfg.ServerConfig.ToServer(
 		host,
 		r.settings.TelemetrySettings,
 		r.httpMux,
@@ -85,7 +86,7 @@ func (r *elasticapmReceiver) Start(ctx context.Context, host component.Host) err
 		return err
 	}
 
-	err = r.startHTTPServer(r.cfg.HTTPServerSettings, host)
+	err = r.startHTTPServer(r.cfg.ServerConfig, host)
 	return err
 }
 
